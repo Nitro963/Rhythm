@@ -1,9 +1,17 @@
 import requests
+import base64
+import json
+
+from PIL import Image
+
+
+class ImageFormatError(Exception):
+    pass
 
 
 class AnimeTracer:
-
     ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/bmp']
+    BASE_URL = 'https://trace.moe/api/'
 
     @staticmethod
     def check_image_type(url):
@@ -12,3 +20,25 @@ class AnimeTracer:
         if content_type not in AnimeTracer.ALLOWED_TYPES:
             return False
         return True
+
+    @staticmethod
+    def url_query(url):
+        if not AnimeTracer.check_image_type(url):
+            raise ImageFormatError
+        return requests.get(url=AnimeTracer.BASE_URL + 'search', params={'url': url})
+
+    @staticmethod
+    def image_query(path):
+
+        img = Image.open(path)
+        mime_type = ''.join(['image/', img.format])
+
+        if mime_type not in AnimeTracer.ALLOWED_TYPES:
+            raise ImageFormatError
+
+        with open(path, "rb") as image_file:
+            base64_img = base64.encodebytes(image_file.read())
+            response = requests.post(url=AnimeTracer.BASE_URL + 'search',
+                                     data=json.dumps({'image': base64_img.decode('utf-8')}),
+                                     headers={'Content-Type': 'application/json'})
+            return response

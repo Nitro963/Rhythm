@@ -1,18 +1,25 @@
+import requests
+import discord
+import json
+
+from urllib.parse import quote
 from discord.ext import commands
-from api.tracemoe import AnimeTracer
+from api import tracemoe
 
 from .log import logger
 
 
+class MultipleImagesQueryError(commands.CommandError):
+    def __init__(self):
+        super().__init__(message='Multiple images search query is not supported.')
+
+
+class ImageFormatError(commands.CommandError):
+    def __init__(self):
+        super().__init__(message='Image format is not supported.')
+
+
 class AnimeEngine(commands.Cog):
-
-    class MultipleImagesQueryError(commands.CommandError):
-        def __init__(self):
-            super().__init__(message='multiple images search query is not supported.')
-
-    class ImageFormatError(commands.CommandError):
-        def __init__(self):
-            super().__init__(message='image format is not supported.')
 
     def __init__(self, client):
         self.client = client
@@ -24,25 +31,51 @@ class AnimeEngine(commands.Cog):
     @commands.command()
     async def what(self, ctx: commands.context.Context, url=None):
         if url is None:
-            logger.info('attachment search query.')
+            logger.info('Attachment search query.')
             if ctx.message.attachments:
                 raise commands.MissingRequiredArgument(param='image attachment')
             elif len(ctx.message.attachments) == 1:
                 attachment_url = ctx.message.attachments[0].url
-                if AnimeTracer.check_image_type(attachment_url):
-                    # TODO send query to trace.moe api
-                    pass
-                else:
-                    raise self.ImageFormatError
+                try:
+                    response = tracemoe.AnimeTracer.url_query(attachment_url)
+                    await ctx.send(embed=AnimeEngine.create_info_embed(response))
+                except tracemoe.ImageFormatError:
+                    raise ImageFormatError
             else:
-                raise self.MultipleImagesQueryError
+                raise MultipleImagesQueryError
         else:
-            logger.info('url search query.')
-            if AnimeTracer.check_image_type(url):
-                # TODO send query to trace.moe api
-                pass
-            else:
-                raise self.ImageFormatError
+            logger.info('Url search query.')
+            try:
+                response = tracemoe.AnimeTracer.url_query(url)
+                await ctx.send(embed=AnimeEngine.create_info_embed(response))
+            except tracemoe.ImageFormatError:
+                raise ImageFormatError
+
+    @staticmethod
+    def create_info_embed(response: requests.Response):
+        response_content = json.loads(response.content.decode('utf-8'))
+        docs = response_content['docs']
+        docs.sort(key=lambda obj: obj['similarity'], reverse=True)
+        top_result = docs[0]
+
+        tracemoe_thumbnail_url = f"https://trace.moe/thumbnail.php?anilist_id={top_result['anilist_id']}" \
+                                 f"&file={quote(top_result['filename'])}&t={top_result['at']}" \
+                                 f"&token={top_result['tokenthumb']}"
+        # TODO add anilist cover thumbnail
+
+        embed = discord.Embed(
+            title=''.join([top_result['title_romaji'], ' #', f"{top_result['episode']}"]),
+            color=discord.Color.blue())
+        embed.add_field(name='Timestamp', value=''.join([str(round(top_result['at'] / 60, 1))]))
+        embed.add_field(name='Similarity', value=''.join([str(int(top_result['similarity'] * 100)), '%']))
+        embed.add_field(name='Anilist ID', value=str(top_result['anilist_id']), inline=False)
+        embed.add_field(name='MAL ID', value=str(top_result['mal_id']))
+
+        embed.set_image(url=tracemoe_thumbnail_url)
+        # embed.set_thumbnail(url=anilist_cover_url)
+        embed.set_footer(text='Brought to you by Nitro')
+
+        return embed
 
 
 def setup(client: commands.Bot):

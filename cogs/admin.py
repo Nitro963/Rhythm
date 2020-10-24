@@ -10,9 +10,10 @@ class Administration(commands.Cog):
 
     @commands.command(help='Deletes most recent messages on the channel')
     @commands.has_permissions(manage_messages=True)
-    async def clear(self, ctx: commands.context.Context, amount=10):
-        logger.info(f'clearing the {amount} most recent message'
-                    f' from {ctx.channel.name} on {ctx.channel.guild.name} server')
+    async def dispose(self, ctx: commands.context.Context, amount=10):
+        end = 's' if amount > 1 else ''
+        logger.info(f'Clearing the {amount} most recent message{end}'
+                    f' from {ctx.channel.name} channel on {ctx.channel.guild.name} server')
         await ctx.channel.purge(limit=amount)
 
 
