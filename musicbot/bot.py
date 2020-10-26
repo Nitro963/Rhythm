@@ -27,5 +27,7 @@ async def on_command_error(ctx, error):
     error_name: str = type(error).__name__
     if 'Error' not in error_name:
         error_name = ''.join([error_name, ' Error'])
+    if isinstance(error, commands.CommandInvokeError):
+        error_name = str(error)
     logger.error(''.join([error_name, ' caused by user ', str(ctx.author)]))
     await ctx.send(error)

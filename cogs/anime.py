@@ -2,7 +2,6 @@ import requests
 import discord
 import json
 
-from urllib.parse import quote
 from discord.ext import commands
 from api import tracemoe
 
@@ -20,6 +19,10 @@ class ImageFormatError(commands.CommandError):
 
 
 class AnimeEngine(commands.Cog):
+
+    ColorDict = {'blue': discord.Color.blue(),
+                 'red': discord.Color.red(),
+                 'green': discord.Color.green()}
 
     def __init__(self, client):
         self.client = client
@@ -53,26 +56,30 @@ class AnimeEngine(commands.Cog):
 
     @staticmethod
     def create_info_embed(response: requests.Response):
+
         response_content = json.loads(response.content.decode('utf-8'))
         docs = response_content['docs']
+
         docs.sort(key=lambda obj: obj['similarity'], reverse=True)
+
         top_result = docs[0]
 
-        tracemoe_thumbnail_url = f"https://trace.moe/thumbnail.php?anilist_id={top_result['anilist_id']}" \
-                                 f"&file={quote(top_result['filename'])}&t={top_result['at']}" \
-                                 f"&token={top_result['tokenthumb']}"
-        # TODO add anilist cover thumbnail
+        tracemoe_thumbnail_url = tracemoe.AnimeTracer.get_thumbnail_url(top_result)
 
+        # TODO add anilist cover thumbnail
+        similarity = int(top_result['similarity'] * 100)
         embed = discord.Embed(
             title=''.join([top_result['title_romaji'], ' #', f"{top_result['episode']}"]),
-            color=discord.Color.blue())
+            color=AnimeEngine.ColorDict[(lambda x: 'red' if x < 87 else 'blue' if x < 93 else 'green')(similarity)])
+
         embed.add_field(name='Timestamp', value=''.join([str(round(top_result['at'] / 60, 1))]))
-        embed.add_field(name='Similarity', value=''.join([str(int(top_result['similarity'] * 100)), '%']))
+        embed.add_field(name='Similarity', value=''.join([str(similarity), '%']))
         embed.add_field(name='Anilist ID', value=str(top_result['anilist_id']), inline=False)
         embed.add_field(name='MAL ID', value=str(top_result['mal_id']))
 
         embed.set_image(url=tracemoe_thumbnail_url)
         # embed.set_thumbnail(url=anilist_cover_url)
+
         embed.set_footer(text='Brought to you by Nitro')
 
         return embed
