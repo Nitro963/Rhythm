@@ -1,5 +1,6 @@
 import os
 import logging
+
 from musicbot.bot import load_cogs, client
 
 if __name__ == '__main__':

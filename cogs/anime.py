@@ -3,7 +3,10 @@ import discord
 import json
 
 from discord.ext import commands
+from saucenao_api.containers import SauceResponse, VideoSauce
+
 from api import tracemoe
+from saucenao_api import SauceNao
 
 from .log import logger
 
@@ -19,10 +22,9 @@ class ImageFormatError(commands.CommandError):
 
 
 class AnimeEngine(commands.Cog):
-
-    ColorDict = {'blue': discord.Color.blue(),
-                 'red': discord.Color.red(),
-                 'green': discord.Color.green()}
+    COLOR_DICT = {'blue': discord.Color.blue(),
+                  'red': discord.Color.red(),
+                  'green': discord.Color.green()}
 
     def __init__(self, client):
         self.client = client
@@ -31,7 +33,12 @@ class AnimeEngine(commands.Cog):
     def description(self):
         return 'Anime search engine'
 
-    @commands.command()
+    @commands.command(help='Searches for anime screenshots using trace.moe API',
+                      description='Life is too short to answer all the "What is the anime?" questions. Let computers '
+                                  'do that for you.\nYou can provide any screenshot '
+                                  'from an aired anime by either a url or an attachment '
+                                  'and I will try to find the source of it as long as it is in these formats '
+                                  'Jpg, Png, or Bmp')
     async def what(self, ctx: commands.context.Context, url=None):
         if url is None:
             logger.info('Attachment search query.')
@@ -41,7 +48,7 @@ class AnimeEngine(commands.Cog):
                 attachment_url = ctx.message.attachments[0].url
                 try:
                     response = tracemoe.AnimeTracer.url_query(attachment_url)
-                    await ctx.send(embed=AnimeEngine.create_info_embed(response))
+                    await ctx.send(embed=self.create_tracemoe_info_embed(response))
                 except tracemoe.ImageFormatError:
                     raise ImageFormatError
             else:
@@ -50,12 +57,40 @@ class AnimeEngine(commands.Cog):
             logger.info('Url search query.')
             try:
                 response = tracemoe.AnimeTracer.url_query(url)
-                await ctx.send(embed=AnimeEngine.create_info_embed(response))
+                await ctx.send(embed=self.create_tracemoe_info_embed(response))
             except tracemoe.ImageFormatError:
                 raise ImageFormatError
 
+    @commands.command(help='Searches for anime pictures source using SauceNAO API',
+                      description='No need to ask anybody for the sauce! let computers help you.\n'
+                                  'You can provide any anime illustration by either a url or an attachment '
+                                  'and I will try to find the source of it'
+                                  ' in various databases including but not limited to: '
+                                  'Pixiv, Danbooru, DeviantArt and an original anime database')
+    async def sauce(self, ctx, url=None):
+        sauce = SauceNao()
+        if url is None:
+            logger.info('Attachment search query.')
+            if ctx.message.attachments:
+                raise commands.MissingRequiredArgument(param='image attachment')
+            elif len(ctx.message.attachments) == 1:
+                attachment_url = ctx.message.attachments[0].url
+                response = sauce.from_url(attachment_url)
+                await ctx.send(embed=self.create_sauce_info_embed(response))
+            else:
+                raise MultipleImagesQueryError
+        else:
+            logger.info('Url search query.')
+            response = sauce.from_url(url)
+            await ctx.send(embed=self.create_sauce_info_embed(response))
+
+    @commands.command(help='', description='')
+    async def info(self, ctx, name):
+        # TODO integrate Anilist API
+        pass
+
     @staticmethod
-    def create_info_embed(response: requests.Response):
+    def create_tracemoe_info_embed(response: requests.Response):
 
         response_content = json.loads(response.content.decode('utf-8'))
         docs = response_content['docs']
@@ -70,7 +105,7 @@ class AnimeEngine(commands.Cog):
         similarity = int(top_result['similarity'] * 100)
         embed = discord.Embed(
             title=''.join([top_result['title_romaji'], ' #', f"{top_result['episode']}"]),
-            color=AnimeEngine.ColorDict[(lambda x: 'red' if x < 87 else 'blue' if x < 93 else 'green')(similarity)])
+            color=AnimeEngine.COLOR_DICT[(lambda x: 'red' if x < 87 else 'blue' if x < 93 else 'green')(similarity)])
 
         embed.add_field(name='Timestamp', value=''.join([str(round(top_result['at'] / 60, 1))]))
         embed.add_field(name='Similarity', value=''.join([str(similarity), '%']))
@@ -79,6 +114,29 @@ class AnimeEngine(commands.Cog):
 
         embed.set_image(url=tracemoe_thumbnail_url)
         # embed.set_thumbnail(url=anilist_cover_url)
+
+        embed.set_footer(text='Brought to you by Nitro')
+
+        return embed
+
+    @staticmethod
+    def create_sauce_info_embed(response: SauceResponse):
+        top_result = response[0]
+
+        sauce_thumbnail_url = top_result.thumbnail
+
+        similarity = int(top_result.similarity)
+        embed = discord.Embed(
+            title=top_result.title,
+            color=AnimeEngine.COLOR_DICT[(lambda x: 'red' if x < 75 else 'blue' if x < 93 else 'green')(similarity)])
+
+        if isinstance(top_result, VideoSauce):
+            embed.add_field(name='Episode', value=top_result.part)
+            embed.add_field(name='Est Time', value=top_result.est_time)
+
+        embed.add_field(name='Similarity', value=''.join([str(similarity), '%']))
+
+        embed.set_image(url=sauce_thumbnail_url)
 
         embed.set_footer(text='Brought to you by Nitro')
 

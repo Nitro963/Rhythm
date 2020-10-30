@@ -1,5 +1,6 @@
 import os
 
+from discord import ClientUser
 from discord.ext import commands
 
 from .log import logger
@@ -24,10 +25,13 @@ async def on_ready():
 
 @client.event
 async def on_command_error(ctx, error):
-    error_name: str = type(error).__name__
-    if 'Error' not in error_name:
-        error_name = ''.join([error_name, ' Error'])
-    if isinstance(error, commands.CommandInvokeError):
-        error_name = str(error)
-    logger.error(''.join([error_name, ' caused by user ', str(ctx.author)]))
+    logger.error(''.join([str(ctx.author), ' caused an exception']), exc_info=error)
     await ctx.send(error)
+
+
+@client.event
+async def on_message(message):
+    await client.process_commands(message)
+    if not message.guild:
+        # TODO add conversational model
+        await message.author.send(f"Received: {message.content}")
