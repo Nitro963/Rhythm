@@ -1,3 +1,6 @@
+from typing import Dict
+
+import aiohttp
 import requests
 import discord
 import json
@@ -8,6 +11,7 @@ from saucenao_api.containers import SauceResponse, VideoSauce
 from api import tracemoe
 from saucenao_api import SauceNao
 
+from api.tracemoe import TraceMoe
 from .log import logger
 
 
@@ -28,6 +32,7 @@ class AnimeEngine(commands.Cog):
 
     def __init__(self, client):
         self.client = client
+        self.tracemoe = TraceMoe()
 
     @property
     def description(self):
@@ -47,7 +52,7 @@ class AnimeEngine(commands.Cog):
             elif len(ctx.message.attachments) == 1:
                 attachment_url = ctx.message.attachments[0].url
                 try:
-                    response = tracemoe.AnimeTracer.url_query(attachment_url)
+                    response = await self.tracemoe.from_url(attachment_url)
                     await ctx.send(embed=self.create_tracemoe_info_embed(response))
                 except tracemoe.ImageFormatError:
                     raise ImageFormatError
@@ -56,7 +61,7 @@ class AnimeEngine(commands.Cog):
         else:
             logger.info('Url search query.')
             try:
-                response = tracemoe.AnimeTracer.url_query(url)
+                response = await self.tracemoe.from_url(url)
                 await ctx.send(embed=self.create_tracemoe_info_embed(response))
             except tracemoe.ImageFormatError:
                 raise ImageFormatError
@@ -89,17 +94,15 @@ class AnimeEngine(commands.Cog):
         # TODO integrate Anilist API
         pass
 
-    @staticmethod
-    def create_tracemoe_info_embed(response: requests.Response):
+    def create_tracemoe_info_embed(self, response: Dict):
 
-        response_content = json.loads(response.content.decode('utf-8'))
-        docs = response_content['docs']
+        docs = response['docs']
 
         docs.sort(key=lambda obj: obj['similarity'], reverse=True)
 
         top_result = docs[0]
 
-        tracemoe_thumbnail_url = tracemoe.AnimeTracer.get_thumbnail_url(top_result)
+        tracemoe_thumbnail_url = await self.tracemoe.get_thumbnail_url(top_result)
 
         # TODO add anilist cover thumbnail
         similarity = int(top_result['similarity'] * 100)
