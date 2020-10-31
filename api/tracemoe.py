@@ -1,10 +1,11 @@
-import aiohttp
 import base64
 import json
+import aiohttp
+
 from typing import Dict
+from urllib.parse import quote
 
 from PIL import Image
-from urllib.parse import quote
 
 
 class ImageFormatError(Exception):
@@ -52,3 +53,7 @@ class TraceMoe:
         return f"{TraceMoe.BASE_URL}thumbnail.php?anilist_id={document['anilist_id']}" \
                f"&file={quote(document['filename'])}&t={document['at']}" \
                f"&token={document['tokenthumb']}"
+
+    def __del__(self):
+        self.session.close()
+        del self.session
