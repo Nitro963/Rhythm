@@ -101,7 +101,7 @@ class AnimeEngine(commands.Cog):
     async def info(self, ctx, *, name: str):
         logger.info(f'Retrieving information of {name}')
         try:
-            response = await self.anilist_api.from_anime_name(name)
+            response = await self.anilist_api.from_anime_title(name)
             await ctx.send(embed=await self.create_anime_info_embed(response['data']['Media']))
         except anilist.AnimeNotFoundError:
             raise AnimeNotFoundError
@@ -121,17 +121,16 @@ class AnimeEngine(commands.Cog):
             title=''.join([top_result['title_romaji'], ' #', f"{top_result['episode']}"]),
             color=AnimeEngine.COLOR_DICT[(lambda x: 'red' if x < 87 else 'blue' if x < 93 else 'green')(similarity)])
 
-        anilist_response = await self.anilist_api.cover_from_anime_id(int(top_result['anilist_id']))
-
-        embed.set_thumbnail(url=anilist_response['data']['Media']['coverImage']['large'])
-
         embed.add_field(name='Timestamp', value=''.join([str(round(top_result['at'] / 60, 1))]))
         embed.add_field(name='Similarity', value=''.join([str(similarity), '%']))
         embed.add_field(name='Anilist ID', value=str(top_result['anilist_id']), inline=False)
         embed.add_field(name='MAL ID', value=str(top_result['mal_id']))
 
         embed.set_image(url=tracemoe_thumbnail_url)
-        # embed.set_thumbnail(url=anilist_cover_url)
+
+        anilist_response = await self.anilist_api.cover_from_anime_id(int(top_result['anilist_id']))
+
+        embed.set_thumbnail(url=anilist_response['data']['Media']['coverImage']['large'])
 
         embed.set_footer(text='Brought to you by Nitro')
 

@@ -1,7 +1,8 @@
 # Rhythm
 Rhythm is a Discord music bot written for Python 3.5+, using the discord.py library.
-It plays requested songs from YouTube into a Discord server (or multiple servers).
+It plays requested songs from YouTube into a Discord server (or multiple servers), also he can search for anime screenshots and provide information about it.
 
+(In progress)
 #### Commands
 There are many commands that can be used with the bot:
  1. play command will download, process, 
@@ -14,3 +15,4 @@ There are many commands that can be used with the bot:
  7. skip command will add user vote to skip the current media.
  8. clear will clear the current playlist.
  
+stay tuned for more features and future updates

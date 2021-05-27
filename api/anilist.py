@@ -11,7 +11,7 @@ class AnimeList:
     def __init__(self):
         self.session = aiohttp.ClientSession()
 
-    async def from_anime_name(self, name: str):
+    async def from_anime_title(self, title: str):
         query = '''
         query($search: String) {
          Media(search: $search, type: ANIME, sort: SEARCH_MATCH){
@@ -52,7 +52,7 @@ class AnimeList:
         }
         '''
         variables = {
-         'search': name
+         'search': title
         }
 
         response = await self.session.post(self.BASE_URL, json={'query': query, 'variables': variables})

@@ -4,7 +4,7 @@ from discord.ext import commands
 from .log import logger
 
 
-class MemberNotFound(commands.CommandError):
+class MemberNotFoundError(commands.CommandError):
     def __init__(self):
         super().__init__(message='The specified discriminator can\'t be found.')
 
@@ -48,7 +48,7 @@ class Administration(commands.Cog):
                 await ctx.guild.unban(user, reason=reason)
                 await ctx.send(f'Unbanned {user.mention}')
                 return
-        raise MemberNotFound
+        raise MemberNotFoundError
 
 
 def setup(client: commands.Bot):
